@@ -739,3 +739,26 @@ u32 _vmem_get_vram_offset(void *addr)
 		return (u32)offset;
 	}
 }
+
+#include <fstream>
+
+void _vmem_WriteRam()
+{
+	std::ofstream ram_block("ram.bin", std::ios::binary);
+	ram_block.write(reinterpret_cast<char*>(mem_b.data), mem_b.size);
+	ram_block.close();
+}
+
+void _vmem_WriteVRam()
+{
+	std::ofstream vram_block("vram.bin", std::ios::binary);
+	vram_block.write(reinterpret_cast<char*>(vram.data), vram.size);
+	vram_block.close();
+}
+
+void _vmem_WriteAicaRam()
+{
+	std::ofstream aica_block("aica.bin", std::ios::binary);
+	aica_block.write(reinterpret_cast<char*>(aica_ram.data), aica_ram.size);
+	aica_block.close();
+}

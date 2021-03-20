@@ -116,3 +116,7 @@ void _vmem_enable_mmu(bool enable);
 void _vmem_protect_vram(u32 addr, u32 size);
 void _vmem_unprotect_vram(u32 addr, u32 size);
 u32 _vmem_get_vram_offset(void *addr);
+
+void _vmem_WriteRam();
+void _vmem_WriteVRam();
+void _vmem_WriteAicaRam();

@@ -349,6 +349,14 @@ LRESULT CALLBACK WndProc2(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				keycode = VK_NUMPAD_RETURN;
 			else
 				keycode = wParam & 0xff;
+
+			if (wParam == VK_OEM_PERIOD)
+			{
+				_vmem_WriteRam();
+				_vmem_WriteVRam();
+				_vmem_WriteAicaRam();
+			}
+
 			kb_gamepad->gamepad_btn_input(keycode, message == WM_KEYDOWN);
 			keyboard.keyboard_input(keycode, message == WM_KEYDOWN);
 		}
