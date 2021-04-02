@@ -7,7 +7,7 @@ RZDCY_MODULES	:=	cfg/ hw/arm7/ hw/aica/ hw/holly/ hw/ hw/gdrom/ hw/maple/ \
  hw/mem/ hw/pvr/ hw/sh4/ hw/sh4/interpr/ hw/sh4/modules/ plugins/ profiler/ oslib/ \
  hw/extdev/ hw/arm/ hw/naomi/ imgread/ ./ deps/zlib/ deps/chdr/ deps/crypto/ \
  deps/libelf/ deps/chdpsr/ arm_emitter/ rend/ reios/ deps/xbrz/ \
- deps/imgui/ archive/ input/ log/ wsi/ network/ hw/bba/
+ deps/imgui/ archive/ input/ log/ wsi/ network/ hw/bba/ debug/
 
 ifndef NOT_ARM
     RZDCY_MODULES += rec-ARM/
@@ -70,16 +70,6 @@ ifdef FOR_WINDOWS
 	endif
     RZDCY_FILES += $(RZDCY_SRC_DIR)/windows/win_vmem.cpp
     RZDCY_CFLAGS += -I$(RZDCY_SRC_DIR)/deps/dirent
-endif
-
-ifdef FOR_PANDORA
-RZDCY_CFLAGS	+= \
-	$(CFLAGS) -c -O3 \
-	-DNDEBUG -DPANDORA\
-	-march=armv7-a -mtune=cortex-a8 -mfpu=neon -mfloat-abi=softfp \
-	-frename-registers -fsingle-precision-constant -ffast-math \
-	-ftree-vectorize -fomit-frame-pointer
-	RZDCY_CFLAGS += -march=armv7-a -mtune=cortex-a8 -mfpu=neon
 endif
 
 ifdef USE_VULKAN

@@ -469,42 +469,62 @@ void SetMVS_Mode(ModifierVolumeMode mv_mode, ISP_Modvol ispc)
 static void SetupMainVBO()
 {
 #ifndef GLES2
+	if (gl.vbo.mainVAO != 0)
+	{
+	   glBindVertexArray(gl.vbo.mainVAO);
+	   return;
+	}
 	if (gl.gl_major >= 3)
-		glBindVertexArray(gl.vbo.vao);
+	{
+	   glGenVertexArrays(1, &gl.vbo.mainVAO);
+	   glBindVertexArray(gl.vbo.mainVAO);
+	}
 #endif
 	glBindBuffer(GL_ARRAY_BUFFER, gl.vbo.geometry); glCheck();
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gl.vbo.idxs); glCheck();
 
 	//setup vertex buffers attrib pointers
-	glEnableVertexAttribArray(VERTEX_POS_ARRAY); glCheck();
-	glVertexAttribPointer(VERTEX_POS_ARRAY, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex,x)); glCheck();
+	glEnableVertexAttribArray(VERTEX_POS_ARRAY);
+	glVertexAttribPointer(VERTEX_POS_ARRAY, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex,x));
 
-	glEnableVertexAttribArray(VERTEX_COL_BASE_ARRAY); glCheck();
-	glVertexAttribPointer(VERTEX_COL_BASE_ARRAY, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), (void*)offsetof(Vertex,col)); glCheck();
+	glEnableVertexAttribArray(VERTEX_COL_BASE_ARRAY);
+	glVertexAttribPointer(VERTEX_COL_BASE_ARRAY, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), (void*)offsetof(Vertex,col));
 
-	glEnableVertexAttribArray(VERTEX_COL_OFFS_ARRAY); glCheck();
-	glVertexAttribPointer(VERTEX_COL_OFFS_ARRAY, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), (void*)offsetof(Vertex,spc)); glCheck();
+	glEnableVertexAttribArray(VERTEX_COL_OFFS_ARRAY);
+	glVertexAttribPointer(VERTEX_COL_OFFS_ARRAY, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), (void*)offsetof(Vertex,spc));
 
-	glEnableVertexAttribArray(VERTEX_UV_ARRAY); glCheck();
-	glVertexAttribPointer(VERTEX_UV_ARRAY, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex,u)); glCheck();
+	glEnableVertexAttribArray(VERTEX_UV_ARRAY);
+	glVertexAttribPointer(VERTEX_UV_ARRAY, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex,u));
+	glCheck();
 }
 
-void SetupModvolVBO()
+static void SetupModvolVBO()
 {
 #ifndef GLES2
+	if (gl.vbo.modvolVAO != 0)
+	{
+	   glBindVertexArray(gl.vbo.modvolVAO);
+	   return;
+	}
 	if (gl.gl_major >= 3)
-		glBindVertexArray(gl.vbo.vao);
+	{
+	   glGenVertexArrays(1, &gl.vbo.modvolVAO);
+	   glBindVertexArray(gl.vbo.modvolVAO);
+	}
 #endif
 	glBindBuffer(GL_ARRAY_BUFFER, gl.vbo.modvols); glCheck();
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
 	//setup vertex buffers attrib pointers
-	glEnableVertexAttribArray(VERTEX_POS_ARRAY); glCheck();
-	glVertexAttribPointer(VERTEX_POS_ARRAY, 3, GL_FLOAT, GL_FALSE, sizeof(float)*3, (void*)0); glCheck();
+	glEnableVertexAttribArray(VERTEX_POS_ARRAY);
+	glVertexAttribPointer(VERTEX_POS_ARRAY, 3, GL_FLOAT, GL_FALSE, sizeof(float)*3, (void*)0);
 
 	glDisableVertexAttribArray(VERTEX_UV_ARRAY);
 	glDisableVertexAttribArray(VERTEX_COL_OFFS_ARRAY);
 	glDisableVertexAttribArray(VERTEX_COL_BASE_ARRAY);
+	glCheck();
 }
+
 void DrawModVols(int first, int count)
 {
 	if (count == 0 || pvrrc.modtrig.used() == 0)
@@ -635,40 +655,16 @@ void DrawStrips()
 	}
 }
 
-static void DrawQuad(GLuint texId, float x, float y, float w, float h, float u0, float v0, float u1, float v1)
-{
-	struct Vertex vertices[] = {
-		{ x,     y + h, 0.1, { 255, 255, 255, 255 }, { 0, 0, 0, 0 }, u0, v1 },
-		{ x,     y,     0.1, { 255, 255, 255, 255 }, { 0, 0, 0, 0 }, u0, v0 },
-		{ x + w, y + h, 0.1, { 255, 255, 255, 255 }, { 0, 0, 0, 0 }, u1, v1 },
-		{ x + w, y,     0.1, { 255, 255, 255, 255 }, { 0, 0, 0, 0 }, u1, v0 },
-	};
-	GLushort indices[] = { 0, 1, 2, 1, 3 };
-
-	glcache.Disable(GL_SCISSOR_TEST);
-	glcache.Disable(GL_DEPTH_TEST);
-	glcache.Disable(GL_STENCIL_TEST);
-	glcache.Disable(GL_CULL_FACE);
-	glcache.Disable(GL_BLEND);
-
-	ShaderUniforms.trilinear_alpha = 1.0;
-
-	PipelineShader *shader = GetProgram(false, false, true, false, true, 0, false, 2, false, false, false, false, false);
-	glcache.UseProgram(shader->program);
-
-	glActiveTexture(GL_TEXTURE0);
-	glcache.BindTexture(GL_TEXTURE_2D, texId);
-
-	SetupMainVBO();
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STREAM_DRAW);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STREAM_DRAW);
-
-	glDrawElements(GL_TRIANGLE_STRIP, 5, GL_UNSIGNED_SHORT, (void *)0);
-}
-
 void DrawFramebuffer()
 {
-	DrawQuad(fbTextureId, 0, 0, 640.f, 480.f, 0, 0, 1, 1);
+	float aspectRatio = 4.f / 3.f;
+	if (config::Rotate90)
+		aspectRatio /= config::ScreenStretching / 100.f;
+	else
+		aspectRatio *= config::ScreenStretching / 100.f;
+	int sx = (int)roundf((gl.ofbo.width - aspectRatio * gl.ofbo.height) / 2.f);
+	glViewport(sx, 0, gl.ofbo.width - sx * 2, gl.ofbo.height);
+	drawQuad(fbTextureId, false, true);
 	glcache.DeleteTextures(1, &fbTextureId);
 	fbTextureId = 0;
 }
@@ -676,15 +672,31 @@ void DrawFramebuffer()
 bool render_output_framebuffer()
 {
 	glcache.Disable(GL_SCISSOR_TEST);
-	if (gl.gl_major < 3)
+	int fx = 0;
+	int sx = 0;
+	float screenAR = (float)screen_width / screen_height;
+	int fbwidth = gl.ofbo.width;
+	int fbheight = gl.ofbo.height;
+	if (config::Rotate90)
+		std::swap(fbwidth, fbheight);
+	float renderAR = (float)fbwidth / fbheight;
+	if (renderAR > screenAR)
+		fx = (int)roundf((fbwidth - screenAR * fbheight) / 2.f);
+	else
+		sx = (int)roundf((screen_width - renderAR * screen_height) / 2.f);
+
+	if (gl.gl_major < 3 || config::Rotate90)
 	{
-		glViewport(0, 0, screen_width, screen_height);
+		if (sx != 0)
+			glViewport(sx, 0, screen_width - sx * 2, screen_height);
+		else
+			glViewport(-fx, 0, screen_width + fx * 2, screen_height);
 		if (gl.ofbo.tex == 0)
 			return false;
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		float scl = 480.f / screen_height;
-		float tx = (screen_width * scl - 640.f) / 2;
-		DrawQuad(gl.ofbo.tex, -tx, 0, 640.f + tx * 2, 480.f, 0, 1, 1, 0);
+		glcache.ClearColor(0.f, 0.f, 0.f, 0.f);
+		glClear(GL_COLOR_BUFFER_BIT);
+		drawQuad(gl.ofbo.tex, config::Rotate90);
 	}
 	else
 	{
@@ -693,8 +705,10 @@ bool render_output_framebuffer()
 			return false;
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, gl.ofbo.fbo);
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-		glBlitFramebuffer(0, 0, gl.ofbo.width, gl.ofbo.height,
-				0, 0, screen_width, screen_height,
+		glcache.ClearColor(0.f, 0.f, 0.f, 0.f);
+		glClear(GL_COLOR_BUFFER_BIT);
+		glBlitFramebuffer(fx, 0, gl.ofbo.width - fx, gl.ofbo.height,
+				sx, 0, screen_width - sx, screen_height,
 				GL_COLOR_BUFFER_BIT, GL_LINEAR);
     	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 #endif

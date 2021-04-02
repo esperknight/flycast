@@ -1,9 +1,8 @@
 #include "types.h"
 #include <unordered_set>
 
-#include "../sh4_interpreter.h"
-#include "../sh4_opcode_list.h"
-#include "../sh4_core.h"
+#include "hw/sh4/sh4_interpreter.h"
+#include "hw/sh4/sh4_core.h"
 #include "hw/sh4/sh4_interrupts.h"
 
 #include "hw/sh4/sh4_mem.h"
@@ -44,6 +43,8 @@ u32* emit_ptr_limit;
 
 std::unordered_set<u32> smc_hotspots;
 
+static sh4_if sh4Interp;
+
 void* emit_GetCCPtr() { return emit_ptr==0?(void*)&CodeCache[LastAddr]:(void*)emit_ptr; }
 void emit_SetBaseAddr() { LastAddr_min = LastAddr; }
 
@@ -70,11 +71,7 @@ static void recSh4_Run()
 
 	sh4_dyna_rcb=(u8*)&Sh4cntx + sizeof(Sh4cntx);
 	INFO_LOG(DYNAREC, "cntx // fpcb offset: %td // pc offset: %td // pc %08X", (u8*)&sh4rcb.fpcb - sh4_dyna_rcb, (u8*)&sh4rcb.cntx.pc - sh4_dyna_rcb, sh4rcb.cntx.pc);
-
-	if (config::DynarecUnstableOpt)
-		NOTICE_LOG(DYNAREC, "Warning: Unstable optimizations is on");
 	
-	verify(rcb_noffs(&next_pc)==-184);
 	ngen_mainloop(sh4_dyna_rcb);
 
 	sh4_int_bCpuRun = false;
@@ -383,42 +380,27 @@ void* DYNACALL rdv_LinkBlock(u8* code,u32 dpc)
 }
 static void recSh4_Stop()
 {
-	Sh4_int_Stop();
-}
-
-static void recSh4_Start()
-{
-	Sh4_int_Start();
+	sh4Interp.Stop();
 }
 
 static void recSh4_Step()
 {
-	Sh4_int_Step();
-}
-
-static void recSh4_Skip()
-{
-	Sh4_int_Skip();
+	sh4Interp.Step();
 }
 
 static void recSh4_Reset(bool hard)
 {
-	Sh4_int_Reset(hard);
+	sh4Interp.Reset(hard);
 	recSh4_ClearCache();
 }
 
 static void recSh4_Init()
 {
 	INFO_LOG(DYNAREC, "recSh4 Init");
-	Sh4_int_Init();
+	Get_Sh4Interpreter(&sh4Interp);
+	sh4Interp.Init();
 	bm_Init();
 
-	verify(rcb_noffs(p_sh4rcb->fpcb) == FPCB_OFFSET);
-
-	verify(rcb_noffs(p_sh4rcb->sq_buffer) == -512);
-
-	verify(rcb_noffs(&p_sh4rcb->cntx.sh4_sched_next) == -152);
-	verify(rcb_noffs(&p_sh4rcb->cntx.interrupt_pend) == -148);
 	
 	if (_nvmem_enabled())
 	{
@@ -455,21 +437,19 @@ static void recSh4_Term()
 {
 	INFO_LOG(DYNAREC, "recSh4 Term");
 	bm_Term();
-	Sh4_int_Term();
+	sh4Interp.Term();
 }
 
 static bool recSh4_IsCpuRunning()
 {
-	return Sh4_int_IsCpuRunning();
+	return sh4Interp.IsCpuRunning();
 }
 
 void Get_Sh4Recompiler(sh4_if* cpu)
 {
 	cpu->Run = recSh4_Run;
 	cpu->Stop = recSh4_Stop;
-	cpu->Start = recSh4_Start;
 	cpu->Step = recSh4_Step;
-	cpu->Skip = recSh4_Skip;
 	cpu->Reset = recSh4_Reset;
 	cpu->Init = recSh4_Init;
 	cpu->Term = recSh4_Term;

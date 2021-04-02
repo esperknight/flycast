@@ -36,7 +36,7 @@ static _vmem_handler area1_32b;
 
 static void map_area1_init()
 {
-	area1_32b = _vmem_register_handler_Template(pvr_read_area1, pvr_write_area1);
+	area1_32b = _vmem_register_handler_Template(pvr_read32p, pvr_write32p);
 }
 
 static void map_area1(u32 base)
@@ -235,7 +235,7 @@ void WriteMemBlock_nommu_dma(u32 dst, u32 src, u32 size)
 	}
 }
 
-void WriteMemBlock_nommu_ptr(u32 dst, u32* src, u32 size)
+void WriteMemBlock_nommu_ptr(u32 dst, const u32 *src, u32 size)
 {
 	bool dst_ismem;
 
@@ -269,19 +269,20 @@ void WriteMemBlock_nommu_ptr(u32 dst, u32* src, u32 size)
 	}
 }
 
-void WriteMemBlock_nommu_sq(u32 dst, u32* src)
+void WriteMemBlock_nommu_sq(u32 dst, const SQBuffer *src)
 {
+	// destination address is 32-byte aligned
 	bool dst_ismem;
-	void* dst_ptr = _vmem_write_const(dst, dst_ismem, 4);
+	SQBuffer *dst_ptr = (SQBuffer *)_vmem_write_const(dst, dst_ismem, 4);
 
 	if (dst_ismem)
 	{
-		memcpy(dst_ptr, src, 32);
+		*dst_ptr = *src;
 	}
 	else
 	{
-		for (u32 i = 0; i < 32; i += 4)
-			WriteMem32_nommu(dst + i, src[i >> 2]);
+		for (u32 i = 0; i < sizeof(SQBuffer); i += 4)
+			WriteMem32_nommu(dst + i, *(const u32 *)&src->data[i]);
 	}
 }
 
@@ -293,7 +294,7 @@ u8* GetMemPtr(u32 Addr,u32 size)
 	switch ((Addr>>26)&0x7)
 	{
 		case 3:
-		return &mem_b[Addr & RAM_MASK];
+			return &mem_b[Addr & RAM_MASK];
 		
 		case 0:
 		case 1:

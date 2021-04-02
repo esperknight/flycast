@@ -2,6 +2,7 @@
 #include "hw/sh4/sh4_if.h"
 #include "hw/sh4/sh4_interrupts.h"
 #include "hw/sh4/sh4_core.h"
+#include "debug/gdb_server.h"
 
 TLB_Entry UTLB[64];
 TLB_Entry ITLB[4];
@@ -148,8 +149,9 @@ void ITLB_Sync(u32 entry)
 }
 #endif
 
-void RaiseException(u32 expEvnt, u32 callVect) {
+static void RaiseException(u32 expEvnt, u32 callVect) {
 #if !defined(NO_MMU)
+	debugger::debugTrap(expEvnt);	// FIXME CCN_TEA and CCN_PTEH have been updated already
 	SH4ThrownException ex = { next_pc - 2, expEvnt, callVect };
 	throw ex;
 #else
@@ -484,9 +486,9 @@ u32 mmu_data_translation(u32 va, u32& rv)
 		return MMU_ERROR_BADADDR;
 	}
 
-	if (sr.MD == 1 && ((va & 0xFC000000) == 0x7C000000))
+	if ((va & 0xFC000000) == 0x7C000000)
 	{
-		// 7C000000 to 7FFFFFFF in P0 not translated in supervisor mode
+		// 7C000000 to 7FFFFFFF in P0/U0 not translated
 		rv = va;
 		return MMU_ERROR_NONE;
 	}
@@ -535,6 +537,10 @@ u32 mmu_data_translation(u32 va, u32& rv)
 		else if (entry->Data.D == 0)
 			return MMU_ERROR_FIRSTWRITE;
 	}
+	if ((rv & 0x1C000000) == 0x1C000000)
+		// map 1C000000-1FFFFFFF to P4 memory-mapped registers
+		rv |= 0xF0000000;
+
 	return MMU_ERROR_NONE;
 }
 template u32 mmu_data_translation<MMU_TT_DREAD, u8>(u32 va, u32& rv);

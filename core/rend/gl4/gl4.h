@@ -1,3 +1,21 @@
+/*
+	Copyright 2018 flyinghead
+
+	This file is part of Flycast.
+
+    Flycast is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 2 of the License, or
+    (at your option) any later version.
+
+    Flycast is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Flycast.  If not, see <https://www.gnu.org/licenses/>.
+*/
 #pragma once
 #include "rend/gles/gles.h"
 #include <unordered_map>
@@ -66,19 +84,20 @@ struct gl4_ctx
 
 extern gl4_ctx gl4;
 
-extern int screen_width;
-extern int screen_height;
 extern int max_image_width;
 extern int max_image_height;
 
 GLuint gl4BindRTT(u32 addy, u32 fbw, u32 fbh, u32 channels, u32 fmt);
-void gl4DrawFramebuffer(float w, float h);
-bool gl4_render_output_framebuffer();
-void abufferDrawQuad();
 
 extern const char *gl4PixelPipelineShader;
 bool gl4CompilePipelineShader(gl4PipelineShader* s, const char *pixel_source = gl4PixelPipelineShader, const char *vertex_source = NULL);
-void gl4_delete_shaders();
+
+void initABuffer();
+void termABuffer();
+void reshapeABuffer(int width, int height);
+void renderABuffer();
+void DrawTranslucentModVols(int first, int count);
+void checkOverflowAndReset();
 
 extern GLuint stencilTexId;
 extern GLuint depthTexId;
@@ -234,6 +253,7 @@ bool isTwoVolumes(const PolyParam pp) \n\
 
 void gl4SetupMainVBO();
 void gl4SetupModvolVBO();
+void gl4CreateTextures(int width, int height);
 
 extern struct gl4ShaderUniforms_t
 {

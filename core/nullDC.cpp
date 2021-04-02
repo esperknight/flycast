@@ -37,8 +37,7 @@
 #include "network/naomi_network.h"
 #include "rend/mainui.h"
 #include "archive/rzip.h"
-
-extern bool fast_forward_mode;
+#include "debug/gdb_server.h"
 
 settings_t settings;
 
@@ -369,12 +368,12 @@ static void LoadSpecialSettings()
 void dc_reset(bool hard)
 {
 	plugins_Reset(hard);
-	mem_Reset(hard);
-
 	sh4_cpu.Reset(hard);
+	mem_Reset(hard);
 }
 
 static bool reset_requested;
+static bool singleStep;
 
 int reicast_init(int argc, char* argv[])
 {
@@ -413,6 +412,7 @@ int reicast_init(int argc, char* argv[])
 	// Needed to avoid crash calling dc_is_running() in gui
 	Get_Sh4Interpreter(&sh4_cpu);
 	sh4_cpu.Init();
+	debugger::init();
 
 	return 0;
 }
@@ -429,23 +429,20 @@ static void set_platform(int platform)
 		settings.platform.aram_size = 2 * 1024 * 1024;
 		settings.platform.bios_size = 2 * 1024 * 1024;
 		settings.platform.flash_size = 128 * 1024;
-		settings.platform.bbsram_size = 0;
 		break;
 	case DC_PLATFORM_NAOMI:
 		settings.platform.ram_size = 32 * 1024 * 1024;
 		settings.platform.vram_size = 16 * 1024 * 1024;
 		settings.platform.aram_size = 8 * 1024 * 1024;
 		settings.platform.bios_size = 2 * 1024 * 1024;
-		settings.platform.flash_size = 0;
-		settings.platform.bbsram_size = 32 * 1024;
+		settings.platform.flash_size = 32 * 1024;	// battery-backed ram
 		break;
 	case DC_PLATFORM_ATOMISWAVE:
 		settings.platform.ram_size = 16 * 1024 * 1024;
 		settings.platform.vram_size = 8 * 1024 * 1024;
 		settings.platform.aram_size = 8 * 1024 * 1024;
 		settings.platform.bios_size = 128 * 1024;
-		settings.platform.flash_size = 0;
-		settings.platform.bbsram_size = 128 * 1024;
+		settings.platform.flash_size = 128 * 1024;	// sram
 		break;
 	default:
 		die("Unsupported platform");
@@ -553,7 +550,7 @@ static void dc_start_game(const char *path)
 					// Content load failed. Boot the BIOS
 					settings.imgread.ImagePath[0] = '\0';
 					if (!LoadRomFiles())
-						throw ReicastException("No BIOS file found");
+						throw ReicastException("This media cannot be loaded");
 					InitDrive();
 				}
 			}
@@ -588,7 +585,7 @@ static void dc_start_game(const char *path)
 		gui_display_notification("Widescreen cheat activated", 1000);
 		config::ScreenStretching.override(134);	// 4:3 -> 16:9
 	}
-	fast_forward_mode = false;
+	settings.input.fastForwardMode = false;
 	EventManager::event(Event::Start);
 	settings.gameStarted = true;
 }
@@ -603,26 +600,36 @@ void* dc_run(void*)
 {
 	InitAudio();
 
+#if FEAT_SHREC != DYNAREC_NONE
 	if (config::DynarecEnabled)
 	{
 		Get_Sh4Recompiler(&sh4_cpu);
 		INFO_LOG(DYNAREC, "Using Recompiler");
 	}
 	else
+#endif
 	{
 		Get_Sh4Interpreter(&sh4_cpu);
 		INFO_LOG(DYNAREC, "Using Interpreter");
 	}
-	do {
-		reset_requested = false;
+	if (singleStep)
+	{
+		singleStep = false;
+		sh4_cpu.Step();
+	}
+	else
+	{
+		do {
+			reset_requested = false;
 
-		sh4_cpu.Run();
+			sh4_cpu.Run();
 
-   		SaveRomFiles();
+			SaveRomFiles();
 
-   		if (reset_requested)
-   			dc_reset(false);
-	} while (reset_requested);
+			if (reset_requested)
+				dc_reset(false);
+		} while (reset_requested);
+	}
 
     TermAudio();
 
@@ -647,6 +654,7 @@ void dc_term_game()
 void dc_term()
 {
 	dc_term_game();
+	debugger::term();
 	dc_cancel_load();
 	sh4_cpu.Term();
 	if (settings.platform.system != DC_PLATFORM_DREAMCAST)
@@ -729,15 +737,39 @@ void dc_resume()
 {
 	SetMemoryHandlers();
 	settings.aica.NoBatch = config::ForceWindowsCE || config::DSPEnabled;
+	int hres;
+	int vres = config::RenderResolution;
+	if (config::Widescreen && !config::Rotate90)
+	{
+		hres = config::RenderResolution * 16 / 9;
+	}
+	else if (config::Rotate90)
+	{
+		vres = vres * config::ScreenStretching / 100;
+		hres = config::RenderResolution * 4 / 3;
+	}
+	else
+	{
+		hres = config::RenderResolution * 4 * config::ScreenStretching / 3 / 100;
+	}
+	if (renderer != nullptr)
+		renderer->Resize(hres, vres);
+
 	EventManager::event(Event::Resume);
 	if (!emu_thread.thread.joinable())
 		emu_thread.Start();
 }
 
+void dc_step()
+{
+	singleStep = true;
+	dc_resume();
+	dc_stop();
+}
+
 static void cleanup_serialize(void *data)
 {
-	if ( data != NULL )
-		free(data) ;
+	free(data);
 }
 
 static std::string get_savestate_file_path(bool writable)
@@ -901,7 +933,9 @@ void dc_loadstate()
 #ifndef NO_MMU
     mmu_flush_table();
 #endif
+#if FEAT_SHREC != DYNAREC_NONE
 	bm_Reset();
+#endif
 
 	u32 unserialized_size = 0;
 	if ( ! dc_unserialize(&data_ptr, &unserialized_size) )

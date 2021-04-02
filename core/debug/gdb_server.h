@@ -1,7 +1,5 @@
 /*
-    Created on: Oct 18, 2019
-
-	Copyright 2019 flyinghead
+	Copyright 2021 flyinghead
 
 	This file is part of Flycast.
 
@@ -17,30 +15,29 @@
 
     You should have received a copy of the GNU General Public License
     along with Flycast.  If not, see <https://www.gnu.org/licenses/>.
-*/
+ */
 #pragma once
-#include <GL4/gl3w.h>
-#include <X11/X.h>
-#include <X11/Xlib.h>
-#include <GL/glx.h>
-#include "gl_context.h"
 
-class XGLGraphicsContext : public GLGraphicsContext
-{
-public:
-	~XGLGraphicsContext() { Term(); XFree(framebufferConfigs); }
+namespace debugger {
 
-	bool Init();
-	void Term();
-	void Swap();
-	bool ChooseVisual(Display* x11Display, XVisualInfo** visual, int* depth);
-	void SetDisplayAndWindow(Display *display, GLXDrawable window) { this->display = display; this->window = window; }
+// exception thrown in response to trap
+struct Stop { };
 
-private:
-	GLXDrawable window;
-	Display *display;
-	GLXContext context;
-	GLXFBConfig* framebufferConfigs = nullptr;
-};
+#ifdef GDB_SERVER
 
-extern XGLGraphicsContext theGLContext;
+	void init();
+	void term();
+	void run();
+	void debugTrap(u32 event);
+	void subroutineCall();
+	void subroutineReturn();
+
+#else
+	static inline void init() {}
+	static inline void term() {}
+	static inline void run() {}
+	static inline void debugTrap(u32 event) {}
+	static inline void subroutineCall() {}
+	static inline void subroutineReturn() {}
+#endif
+}

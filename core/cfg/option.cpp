@@ -24,7 +24,6 @@ namespace config {
 
 Option<bool> DynarecEnabled("Dynarec.Enabled", true);
 Option<bool> DynarecIdleSkip("Dynarec.idleskip", true);
-Option<bool> DynarecUnstableOpt("Dynarec.unstable-opt");
 Option<bool> DynarecSafeMode("Dynarec.safe-mode");
 Option<bool> DisableVmem32("Dynarec.DisableVmem32");
 
@@ -72,7 +71,6 @@ Option<int> MaxFilteredTextureSize("rend.MaxFilteredTextureSize", 256);
 Option<float> ExtraDepthScale("rend.ExtraDepthScale", 1.f);
 Option<bool> CustomTextures("rend.CustomTextures");
 Option<bool> DumpTextures("rend.DumpTextures");
-Option<int> ScreenScaling("rend.ScreenScaling", 100);
 Option<int> ScreenStretching("rend.ScreenStretching", 100);
 Option<bool> Fog("rend.Fog", true);
 Option<bool> FloatVMUs("rend.FloatVMUs");
@@ -89,6 +87,7 @@ std::array<Option<int>, 4> CrosshairColor {
 Option<int> SkipFrame("ta.skip");
 Option<int> MaxThreads("pvr.MaxThreads", 3);
 Option<int> AutoSkipFrame("pvr.AutoSkipFrame", 0);
+Option<int> RenderResolution("rend.Resolution", 480);
 
 // Misc
 
